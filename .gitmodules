@@ -1,0 +1,3 @@
+[submodule "native/KataglyphisCppInference"]
+	path = native/KataglyphisCppInference
+	url = git@github.com:Kataglyphis/Kataglyphis-Cpp-Inference.git
