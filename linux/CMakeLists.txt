@@ -1,7 +1,7 @@
 # The Flutter tooling requires that developers have CMake 3.10 or later
 # installed. You should not increase this version, as doing so will cause
 # the plugin to fail to compile for some customers of the plugin.
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 4.1.1)
 
 # Project-level configuration.
 set(PROJECT_NAME "kataglyphis_native_inference")
@@ -15,6 +15,10 @@ set(PLUGIN_NAME "kataglyphis_native_inference_plugin")
 list(APPEND PLUGIN_SOURCES
   "kataglyphis_native_inference_plugin.cc"
 )
+
+# Add your native library - source folder is ../native
+set(RUST_FEATURES "TRUE")
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../native/KataglyphisCppInference ${CMAKE_CURRENT_BINARY_DIR}/native_build)
 
 # Define the plugin library target. Its name must not be changed (see comment
 # on PLUGIN_NAME above).
@@ -40,6 +44,7 @@ target_include_directories(${PLUGIN_NAME} INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter)
 target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GTK)
+target_link_libraries(${PLUGIN_NAME} PRIVATE KataglyphisCppInference)
 
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an
@@ -65,8 +70,9 @@ enable_testing()
 include(FetchContent)
 FetchContent_Declare(
   googletest
-  URL https://github.com/google/googletest/archive/release-1.11.0.zip
+  URL https://github.com/google/googletest/archive/9706f75b8f91c52a3840cf5d878a7f37ea10ef00.zip
 )
+# release-1.11.0.zip
 # Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 # Disable install commands for gtest so it doesn't end up in the bundle.
