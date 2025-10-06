@@ -2,7 +2,7 @@
 # installed that includes CMake 3.14 or later. You should not increase this
 # version, as doing so will cause the plugin to fail to compile for some
 # customers of the plugin.
-cmake_minimum_required(VERSION 4.1.1)
+cmake_minimum_required(VERSION 3.31.6)
 
 # Project-level configuration.
 set(PROJECT_NAME "kataglyphis_native_inference")
