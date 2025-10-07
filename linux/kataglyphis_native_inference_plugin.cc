@@ -8,6 +8,8 @@
 
 #include "kataglyphis_native_inference_plugin_private.h"
 
+#include "kataglyphis_c_api.h"
+
 #define KATAGLYPHIS_NATIVE_INFERENCE_PLUGIN(obj) \
   (G_TYPE_CHECK_INSTANCE_CAST((obj), kataglyphis_native_inference_plugin_get_type(), \
                               KataglyphisNativeInferencePlugin))
@@ -40,8 +42,12 @@ static void kataglyphis_native_inference_plugin_handle_method_call(
           fl_value_get_type(b_val) == FL_VALUE_TYPE_INT) {
         gint64 a = fl_value_get_int(a_val);
         gint64 b = fl_value_get_int(b_val);
-        g_autoptr(FlValue) result = fl_value_new_int(a + b);
-        response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+
+        // Call the C API function from KataglyphisCppInference
+        int result = kataglyphis_add((int)a, (int)b);
+        
+        g_autoptr(FlValue) result_value = fl_value_new_int(result);
+        response = FL_METHOD_RESPONSE(fl_method_success_response_new(result_value));
       } else {
         response = FL_METHOD_RESPONSE(fl_method_error_response_new(
             "bad_args", "Expected integer 'a' and 'b' in the argument map", nullptr));

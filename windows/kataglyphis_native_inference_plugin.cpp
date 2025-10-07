@@ -13,6 +13,8 @@
 #include <memory>
 #include <sstream>
 
+#include "kataglyphis_c_api.h"
+
 namespace kataglyphis_native_inference {
 
 // static
@@ -60,7 +62,8 @@ void KataglyphisNativeInferencePlugin::HandleMethodCall(
         if (itA != args->end()) a = std::get<int>(itA->second);
         if (itB != args->end()) b = std::get<int>(itB->second);
 
-        int sum = a + b;
+        // use the C API
+        int sum = kataglyphis_add(a, b);
         result->Success(flutter::EncodableValue(sum));
       } else {
         result->Error("bad_args", "Expected map with a and b");
