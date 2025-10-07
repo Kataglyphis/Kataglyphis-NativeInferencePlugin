@@ -51,6 +51,20 @@ void KataglyphisNativeInferencePlugin::HandleMethodCall(
       version_stream << "7";
     }
     result->Success(flutter::EncodableValue(version_stream.str()));
+  } else if(method_call.method_name().compare("add") == 0) {
+      const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
+      if (args) {
+        int a = 0, b = 0;
+        auto itA = args->find(flutter::EncodableValue("a"));
+        auto itB = args->find(flutter::EncodableValue("b"));
+        if (itA != args->end()) a = std::get<int>(itA->second);
+        if (itB != args->end()) b = std::get<int>(itB->second);
+
+        int sum = a + b;
+        result->Success(flutter::EncodableValue(sum));
+      } else {
+        result->Error("bad_args", "Expected map with a and b");
+      }
   } else {
     result->NotImplemented();
   }

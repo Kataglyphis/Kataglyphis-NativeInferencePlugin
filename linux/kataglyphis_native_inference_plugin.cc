@@ -28,6 +28,28 @@ static void kataglyphis_native_inference_plugin_handle_method_call(
 
   if (strcmp(method, "getPlatformVersion") == 0) {
     response = get_platform_version();
+  } else if (strcmp(method, "add") == 0) {
+    // Linux-style handling for an 'add' method expecting { "a": int, "b": int }
+    FlValue* args = fl_method_call_get_args(method_call);
+    if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* a_val = fl_value_lookup_string(args, "a");
+      FlValue* b_val = fl_value_lookup_string(args, "b");
+
+      if (a_val && b_val &&
+          fl_value_get_type(a_val) == FL_VALUE_TYPE_INT &&
+          fl_value_get_type(b_val) == FL_VALUE_TYPE_INT) {
+        gint64 a = fl_value_get_int(a_val);
+        gint64 b = fl_value_get_int(b_val);
+        g_autoptr(FlValue) result = fl_value_new_int(a + b);
+        response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+      } else {
+        response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+            "bad_args", "Expected integer 'a' and 'b' in the argument map", nullptr));
+      }
+    } else {
+      response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+          "bad_args", "Expected argument map", nullptr));
+    }
   } else {
     response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
   }
