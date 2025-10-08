@@ -44,6 +44,10 @@ apply_standard_settings(${PLUGIN_NAME})
 set_target_properties(${PLUGIN_NAME} PROPERTIES
   CXX_VISIBILITY_PRESET hidden)
 target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
+# we need this so the frontend knows the func was compiled into a dll
+target_compile_definitions(${PLUGIN_NAME} PRIVATE
+    KATAGLYPHIS_EXPORTS
+)
 
 # Source include directories and library dependencies. Add any plugin-specific
 # dependencies here.
