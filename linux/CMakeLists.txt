@@ -14,6 +14,7 @@ set(PLUGIN_NAME "kataglyphis_native_inference_plugin")
 # Any new source files that you add to the plugin should be added here.
 list(APPEND PLUGIN_SOURCES
   "kataglyphis_native_inference_plugin.cc"
+  "my_texture.cc"
 )
 
 # Add your native library - source folder is ../native
@@ -31,6 +32,11 @@ add_library(${PLUGIN_NAME} SHARED
 # full control over build settings.
 apply_standard_settings(${PLUGIN_NAME})
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GST REQUIRED IMPORTED_TARGET gstreamer-1.0)
+pkg_check_modules(GST_APP REQUIRED IMPORTED_TARGET gstreamer-app-1.0)
+
+
 # Symbols are hidden by default to reduce the chance of accidental conflicts
 # between plugins. This should not be removed; any symbols that should be
 # exported should be explicitly exported with the FLUTTER_PLUGIN_EXPORT macro.
@@ -43,10 +49,17 @@ target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
 target_include_directories(${PLUGIN_NAME} INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
   "${CMAKE_CURRENT_SOURCE_DIR}/../native/KataglyphisCppInference/Src")
+
+target_include_directories(${PLUGIN_NAME} PRIVATE
+  ${GST_INCLUDE_DIRS}
+  ${GST_APP_INCLUDE_DIRS}
+)
+
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter)
 target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GTK)
 target_link_libraries(${PLUGIN_NAME} PRIVATE KataglyphisCppInference)
-
+target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GST
+  PkgConfig::GST_APP)
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an
 # external build triggered from this build file.
