@@ -1,7 +1,7 @@
 name: kataglyphis_native_inference
 description: "A new Flutter plugin project."
 version: 0.0.1
-homepage:
+homepage: "jonasheinle.de"
 
 environment:
   sdk: ">=3.9.2 <4.0.0"
