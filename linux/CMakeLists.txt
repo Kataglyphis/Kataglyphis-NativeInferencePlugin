@@ -35,12 +35,12 @@ if(TARGET KataglyphisCppInference)
 
   # Install public headers (adjust path to actual headers if different)
   # Assume headers live in the native project include/ or Src/include.
-  #install(DIRECTORY
-  #  ${CMAKE_CURRENT_SOURCE_DIR}/../native/KataglyphisCppInference/include
-  #  DESTINATION include/KataglyphisCppInference
-  #  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
-  #  OPTIONAL
-  #)
+  install(DIRECTORY
+    ${CMAKE_CURRENT_SOURCE_DIR}/../native/KataglyphisCppInference/include
+    DESTINATION include/KataglyphisCppInference
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+    OPTIONAL
+  )
 else()
   message(WARNING "Target KataglyphisCppInference not found; skipping install rules.")
 endif()
