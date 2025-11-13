@@ -23,27 +23,26 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../native/KataglyphisCppInference $
 
 # --- Install KataglyphisCppInference together with this plugin ----------------
 # Only add install rules if the target actually exists (safety).
-if(TARGET KataglyphisCppInference)
-  # Install the library target (runtime, shared lib, static archive)
-  install(TARGETS KataglyphisCppInference
-    EXPORT KataglyphisCppInferenceTargets
-    RUNTIME DESTINATION bin        # executables on some platforms
-    LIBRARY DESTINATION lib        # shared libs
-    ARCHIVE DESTINATION lib        # static libs / import libs
-    INCLUDES DESTINATION include
-  )
+# if(TARGET KataglyphisCppInference)
 
-  # Install public headers (adjust path to actual headers if different)
-  # Assume headers live in the native project include/ or Src/include.
-  install(DIRECTORY
-    ${CMAKE_CURRENT_SOURCE_DIR}/../native/KataglyphisCppInference/include
-    DESTINATION include/KataglyphisCppInference
-    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
-    OPTIONAL
-  )
-else()
-  message(WARNING "Target KataglyphisCppInference not found; skipping install rules.")
-endif()
+#   # Install public headers (adjust path to actual headers if different)
+#   # Assume headers live in the native project include/ or Src/include.
+#   install(DIRECTORY
+#     ${CMAKE_CURRENT_SOURCE_DIR}/../native/KataglyphisCppInference/Src
+#     DESTINATION include/KataglyphisCppInference
+#     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+#   )
+#   # Install the library target (runtime, shared lib, static archive)
+#   install(TARGETS KataglyphisCppInference
+#     EXPORT KataglyphisCppInferenceTargets
+#     RUNTIME DESTINATION bin        # executables on some platforms
+#     LIBRARY DESTINATION lib        # shared libs
+#     ARCHIVE DESTINATION lib        # static libs / import libs
+#     INCLUDES DESTINATION Src
+#   )
+# else()
+#   message(WARNING "Target KataglyphisCppInference not found; skipping install rules.")
+# endif()
 
 # Define the plugin library target. Its name must not be changed (see comment
 # on PLUGIN_NAME above).
@@ -88,7 +87,7 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GST
 # This list could contain prebuilt libraries, or libraries created by an
 # external build triggered from this build file.
 set(kataglyphis_native_inference_bundled_libraries
-  ""
+  "$<TARGET_FILE:KataglyphisCppInference>"
   PARENT_SCOPE
 )
 
