@@ -28,7 +28,13 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        externalNativeBuild {
+            ndkBuild {
+                arguments("NDK_APPLICATION_MK:=src/main/jni/Application.mk")
+            }
+        }
     }
+
 
     buildTypes {
         release {
