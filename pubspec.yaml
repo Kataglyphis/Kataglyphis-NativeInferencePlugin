@@ -4,8 +4,8 @@ version: 0.0.1
 homepage: "jonasheinle.de"
 
 environment:
-  sdk: ">=3.10.0 <4.0.0"
-  flutter: '>=3.38.1'
+  sdk: ">=3.10.1 <4.0.0"
+  flutter: '>=3.38.4'
 
 dependencies:
   flutter:
@@ -35,7 +35,7 @@ flutter:
   plugin:
     platforms:
       android:
-        package: com.kataglyphis.native_inference
+        package: com.example.kataglyphis_native_inference
         pluginClass: KataglyphisNativeInferencePlugin
       linux:
         pluginClass: KataglyphisNativeInferencePlugin

@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.kataglyphis_native_inference"
+    namespace = "com.example.kataglyphis_native_inference_example"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -21,20 +21,14 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.kataglyphis_native_inference"
+        applicationId = "com.example.kataglyphis_native_inference_example"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        externalNativeBuild {
-            ndkBuild {
-                arguments("NDK_APPLICATION_MK:=src/main/jni/Application.mk")
-            }
-        }
     }
-
 
     buildTypes {
         release {
