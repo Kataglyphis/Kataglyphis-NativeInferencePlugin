@@ -83,7 +83,21 @@ class KataglyphisNativeInferencePlugin :
             return
         }
 
-        handleNoArgCommand(result) { controller -> controller.setPipeline(pipeline) }
+        val controller = gstreamerController ?: run {
+            result.error("no_controller", "Plugin binding is unavailable", null)
+            return
+        }
+
+        runCatching { controller.setPipeline(pipeline) }
+            .onSuccess { result.success(null) }
+            .onFailure { throwable ->
+                Log.e("KataglyphisGStreamer", "setPipeline failed for: $pipeline", throwable)
+                result.error(
+                    "command_failed",
+                    "setPipeline failed; check that required elements are available",
+                    null,
+                )
+            }
     }
 
     private fun handleSetColor(call: MethodCall, result: Result) {

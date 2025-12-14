@@ -10,18 +10,340 @@ if(NOT DEFINED ENV{GSTREAMER_ROOT_ANDROID})
 endif()
 
 set(GSTREAMER_ROOT_ANDROID $ENV{GSTREAMER_ROOT_ANDROID})
-list(PREPEND CMAKE_PREFIX_PATH ${GSTREAMER_ROOT_ANDROID})
-list(PREPEND CMAKE_FIND_ROOT_PATH ${GSTREAMER_ROOT_ANDROID})
 
-find_package(GStreamer REQUIRED COMPONENTS gstreamer-1.0 gstreamer-video-1.0)
+# The bundled FindGStreamer.cmake expects a per-ABI prefix (contains lib/pkgconfig).
+set(GStreamer_ROOT_DIR "${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}")
+if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
+    set(GStreamer_ROOT_DIR "${GSTREAMER_ROOT_ANDROID}/arm64")
+elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
+    set(GStreamer_ROOT_DIR "${GSTREAMER_ROOT_ANDROID}/armv7")
+endif()
+
+# Only static libs are shipped in the current SDK layout.
+set(GStreamer_USE_STATIC_LIBS ON)
+# Pull in extra modules we need (video).
+set(GSTREAMER_EXTRA_DEPS gstreamer-video-1.0)
+
+# Some Android GStreamer SDKs name ABI dirs differently (e.g., arm64-v8a vs arm64).
+set(_GSTREAMER_ALT_ABI "${CMAKE_ANDROID_ARCH_ABI}")
+if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
+    set(_GSTREAMER_ALT_ABI "arm64")
+elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
+    set(_GSTREAMER_ALT_ABI "armv7")
+endif()
+
+# Help CMake discover the config package shipped with the Android GStreamer SDK.
+set(_GSTREAMER_HINT_DIRS
+    ${GSTREAMER_ROOT_ANDROID}
+    ${GSTREAMER_ROOT_ANDROID}/lib/cmake
+    ${GSTREAMER_ROOT_ANDROID}/lib/cmake/gstreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/lib/cmake/GStreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/share/cmake
+    ${GSTREAMER_ROOT_ANDROID}/share/cmake/gstreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/share/cmake/GStreamer-1.0
+    # ABI-scoped subdirs used by the official Android GStreamer SDK layout
+    ${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}
+    ${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}/lib/cmake
+    ${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}/lib/cmake/gstreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}/lib/cmake/GStreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}/share/cmake
+    ${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}/share/cmake/gstreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}/share/cmake/GStreamer-1.0
+    # Alternate ABI folder names sometimes used by prebuilt SDKs
+    ${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}
+    ${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}/lib/cmake
+    ${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}/lib/cmake/gstreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}/lib/cmake/GStreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}/share/cmake
+    ${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}/share/cmake/gstreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}/share/cmake/GStreamer-1.0
+)
+list(PREPEND CMAKE_PREFIX_PATH ${_GSTREAMER_HINT_DIRS})
+list(PREPEND CMAKE_FIND_ROOT_PATH ${GSTREAMER_ROOT_ANDROID})
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
+list(PREPEND CMAKE_MODULE_PATH
+    ${GSTREAMER_ROOT_ANDROID}/share/cmake
+    ${GSTREAMER_ROOT_ANDROID}/share/cmake/gstreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/share/cmake/GStreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}/share/cmake
+    ${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}/share/cmake/gstreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}/share/cmake/GStreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}/share/cmake
+    ${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}/share/cmake/gstreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}/share/cmake/GStreamer-1.0
+)
+
+# Prefer the SDK-provided find module (no config package is shipped in this SDK).
+set(CMAKE_MODULE_PATH
+    ${GStreamer_ROOT_DIR}/share/cmake
+    ${GStreamer_ROOT_DIR}/share/cmake/gstreamer-1.0
+    ${CMAKE_MODULE_PATH})
+
+find_package(GStreamer REQUIRED MODULE)
+
+# GLib regex pulls in pcre2; the Android SDK ships it as a static lib.
+find_library(PCRE2_LIB
+    NAMES pcre2-8
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+# GLib plugin loading needs gmodule; conversions need iconv; gobject marshalling needs ffi.
+find_library(GMODULE_LIB
+    NAMES gmodule-2.0
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+find_library(ICONV_LIB
+    NAMES iconv
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+find_library(FFI_LIB
+    NAMES ffi
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+# Static plugin libs we need (coreelements contains videoconvert/appsink; add videotestsrc and androidmedia).
+find_library(GST_COREELEMENTS_LIB
+    NAMES gstcoreelements-1.0 gstcoreelements
+    HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+find_library(GST_APP_LIB
+    NAMES gstapp
+    HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+find_library(GST_VIDEOTESTSRC_LIB
+    NAMES gstvideotestsrc-1.0 gstvideotestsrc
+    HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+# Android media plugin - note: library is named 'gstandroidmedia' (without -1.0 suffix)
+find_library(GST_ANDROIDMEDIA_LIB
+    NAMES gstandroidmedia gstandroidmedia-1.0
+    HINTS 
+        ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0
+        ${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}/lib/gstreamer-1.0
+        ${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}/lib/gstreamer-1.0
+    PATHS 
+        ${GSTREAMER_ROOT_ANDROID}/arm64/lib/gstreamer-1.0
+        ${GSTREAMER_ROOT_ANDROID}/armv7/lib/gstreamer-1.0
+        ${GSTREAMER_ROOT_ANDROID}/x86/lib/gstreamer-1.0
+        ${GSTREAMER_ROOT_ANDROID}/x86_64/lib/gstreamer-1.0
+    NO_DEFAULT_PATH)
+
+find_library(GST_AHC_LIB
+    NAMES gstahc-1.0 gstahc gstndk-1.0 gstndk gstcamera-1.0 gstcamera
+    HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0
+    PATHS 
+        ${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}/lib/gstreamer-1.0
+        ${GSTREAMER_ROOT_ANDROID}/arm64/lib/gstreamer-1.0
+        ${GSTREAMER_ROOT_ANDROID}/armv7/lib/gstreamer-1.0
+        ${GSTREAMER_ROOT_ANDROID}/x86/lib/gstreamer-1.0
+        ${GSTREAMER_ROOT_ANDROID}/x86_64/lib/gstreamer-1.0
+    NO_DEFAULT_PATH)
+
+find_library(GST_OPENGL_LIB
+    NAMES gstopengl-1.0 gstopengl
+    HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+find_library(GST_GL_LIB
+    NAMES gstgl-1.0
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+# Video format conversion and filters (optional - may be part of coreelements)
+find_library(GST_VIDEOCONVERT_LIB
+    NAMES gstvideoconvert-1.0 gstvideoconvert
+    HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0
+    NO_DEFAULT_PATH)
+
+find_library(GST_VIDEOSCALE_LIB
+    NAMES gstvideoscale-1.0 gstvideoscale
+    HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0
+    NO_DEFAULT_PATH)
+
+find_library(GST_AUDIO_LIB
+    NAMES gstaudio-1.0
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+find_library(GST_PHOTOGRAPHY_LIB
+    NAMES gstphotography-1.0
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+find_library(ORC_LIB
+    NAMES orc-0.4
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+find_library(PNG_LIB
+    NAMES png16 png
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+find_library(JPEG_LIB
+    NAMES jpeg
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+find_library(ZLIB_LIB
+    NAMES z zlib
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+find_library(GRAPHENE_LIB
+    NAMES graphene-1.0 graphene
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+find_library(GST_CONTROLLER_LIB
+    NAMES gstcontroller-1.0
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
+
+# Core app library (contains gst_app_src/sink types).
+find_library(GST_APP_CORE_LIB
+    NAMES gstapp-1.0
+    HINTS ${GStreamer_ROOT_DIR}/lib
+    NO_DEFAULT_PATH
+    REQUIRED)
 
 add_library(kataglyphis_native_inference SHARED gstreamer_native.cpp)
 
+# Set compile definitions if optional plugins are available
+if(GST_ANDROIDMEDIA_LIB)
+    target_compile_definitions(kataglyphis_native_inference PRIVATE GST_ANDROIDMEDIA_AVAILABLE)
+    message(STATUS "Enabling GST_ANDROIDMEDIA_AVAILABLE")
+else()
+    message(STATUS "GST_ANDROIDMEDIA_LIB not found - androidmedia plugin will NOT be linked")
+endif()
+if(GST_AHC_LIB)
+    target_compile_definitions(kataglyphis_native_inference PRIVATE GST_AHC_AVAILABLE)
+    message(STATUS "Enabling GST_AHC_AVAILABLE")
+endif()
+if(GST_VIDEOCONVERT_LIB)
+    target_compile_definitions(kataglyphis_native_inference PRIVATE GST_VIDEOCONVERT_AVAILABLE)
+    message(STATUS "Enabling GST_VIDEOCONVERT_AVAILABLE")
+endif()
+
+# Build plugin list for whole-archive
+set(_WHOLE_ARCHIVE_PLUGINS
+    ${GST_COREELEMENTS_LIB}
+    ${GST_APP_LIB}
+    ${GST_VIDEOTESTSRC_LIB}
+    ${GST_OPENGL_LIB})
+
+# Diagnose: Print which optional plugins are available
+message(STATUS "=== GStreamer Build Configuration ===")
+message(STATUS "CMAKE_ANDROID_ARCH_ABI: ${CMAKE_ANDROID_ARCH_ABI}")
+message(STATUS "GStreamer_ROOT_DIR: ${GStreamer_ROOT_DIR}")
+message(STATUS "GSTREAMER_ROOT_ANDROID: ${GSTREAMER_ROOT_ANDROID}")
+message(STATUS "=== GStreamer Plugin Availability ===")
+message(STATUS "GStreamer SDK: ${GStreamer_ROOT_DIR}")
+message(STATUS "Core plugins: FOUND")
+if(GST_ANDROIDMEDIA_LIB)
+    message(STATUS "Android Media plugin: FOUND (${GST_ANDROIDMEDIA_LIB})")
+    list(APPEND _WHOLE_ARCHIVE_PLUGINS ${GST_ANDROIDMEDIA_LIB})
+else()
+    message(STATUS "Android Media plugin: NOT FOUND")
+endif()
+if(GST_AHC_LIB)
+    message(STATUS "Android Camera (ahc/ndk) plugin: FOUND (${GST_AHC_LIB})")
+    list(APPEND _WHOLE_ARCHIVE_PLUGINS ${GST_AHC_LIB})
+else()
+    message(STATUS "Android Camera (ahc/ndk) plugin: NOT FOUND")
+    message(STATUS "  Tip: Download GStreamer SDK with gstahc or gstandroidmedia plugins")
+    message(STATUS "  See: GSTREAMER_SETUP.md for detailed instructions")
+endif()
+if(GST_VIDEOCONVERT_LIB)
+    message(STATUS "Videoconvert plugin: FOUND")
+    list(APPEND _WHOLE_ARCHIVE_PLUGINS ${GST_VIDEOCONVERT_LIB})
+endif()
+if(GST_VIDEOSCALE_LIB)
+    message(STATUS "Videoscale plugin: FOUND")
+    list(APPEND _WHOLE_ARCHIVE_PLUGINS ${GST_VIDEOSCALE_LIB})
+endif()
+message(STATUS "======================================")
+
+
 target_link_libraries(kataglyphis_native_inference
     PRIVATE
-        GStreamer::gstreamer-1.0
-        GStreamer::gstreamer-video-1.0
+        GStreamer::GStreamer
+        ${PCRE2_LIB}
+        ${GMODULE_LIB}
+        ${ICONV_LIB}
+        ${FFI_LIB}
+        ${GST_APP_CORE_LIB}
+        ${GST_GL_LIB}
+        ${GST_AUDIO_LIB}
+        ${GST_PHOTOGRAPHY_LIB}
+        ${PNG_LIB}
+        ${JPEG_LIB}
+        ${ZLIB_LIB}
+        ${GRAPHENE_LIB}
+        ${GST_CONTROLLER_LIB}
+        -Wl,--start-group
+            -Wl,--whole-archive ${_WHOLE_ARCHIVE_PLUGINS} -Wl,--no-whole-archive
+            ${GStreamer_ROOT_DIR}/lib/libgstvideo-1.0.a
+            ${GStreamer_ROOT_DIR}/lib/libgstgl-1.0.a
+            ${GStreamer_ROOT_DIR}/lib/libgstpbutils-1.0.a
+            ${GStreamer_ROOT_DIR}/lib/libgstbase-1.0.a
+            ${GStreamer_ROOT_DIR}/lib/libgstreamer-1.0.a
+            ${GStreamer_ROOT_DIR}/lib/libgobject-2.0.a
+            ${GStreamer_ROOT_DIR}/lib/libglib-2.0.a
+            ${ORC_LIB}
+        -Wl,--end-group
         android
-        log)
+        log
+        EGL
+        GLESv2
+        mediandk     # Required for androidmedia plugin (Camera2 API)
+        camera2ndk   # Required for ahc2src element (Camera2 NDK)
+        ${GStreamer_ROOT_DIR}/lib/libintl.a
+        m
+        dl
+        atomic)
+
+# Keep plugin register symbols alive
+set(_PLUGIN_SYMBOLS
+    -Wl,-u,gst_plugin_coreelements_register
+    -Wl,-u,gst_plugin_app_register
+    -Wl,-u,gst_plugin_videotestsrc_register
+    -Wl,-u,gst_plugin_opengl_register)
+if(GST_ANDROIDMEDIA_LIB)
+    list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_androidmedia_register)
+endif()
+if(GST_AHC_LIB)
+    list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_ahc_register -Wl,-u,gst_plugin_ndk_register)
+endif()
+if(GST_VIDEOCONVERT_LIB)
+    list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_videoconvert_register)
+endif()
+if(GST_VIDEOSCALE_LIB)
+    list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_videoscale_register)
+endif()
+
+target_link_options(kataglyphis_native_inference PRIVATE ${_PLUGIN_SYMBOLS})
 
 target_compile_definitions(kataglyphis_native_inference PRIVATE GST_DISABLE_DEPRECATED)

@@ -4,8 +4,8 @@ version: 0.0.1
 homepage: "jonasheinle.de"
 
 environment:
-  sdk: ">=3.10.1 <4.0.0"
-  flutter: '>=3.38.4'
+  sdk: ">=3.10.4 <4.0.0"
+  flutter: '>=3.38.5'
 
 dependencies:
   flutter:
