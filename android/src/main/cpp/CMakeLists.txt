@@ -354,7 +354,11 @@ set(_PLUGIN_SYMBOLS
     -Wl,-u,gst_plugin_coreelements_register
     -Wl,-u,gst_plugin_app_register
     -Wl,-u,gst_plugin_videotestsrc_register
-    -Wl,-u,gst_plugin_opengl_register)
+    -Wl,-u,gst_plugin_opengl_register
+    # Keep JNI_OnLoad from libgstreamer-1.0.a alive - this registers the native method
+    # for org.freedesktop.gstreamer.GStreamer.nativeInit() which sets up the application
+    # context and class loader needed by the androidmedia plugin.
+    -Wl,-u,JNI_OnLoad)
 if(GST_ANDROIDMEDIA_LIB)
     list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_androidmedia_register)
 endif()

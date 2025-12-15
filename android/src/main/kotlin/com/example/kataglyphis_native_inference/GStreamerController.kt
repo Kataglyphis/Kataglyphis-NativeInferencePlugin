@@ -1,6 +1,7 @@
 package com.example.kataglyphis_native_inference
 
 import android.content.Context
+import android.util.Log
 import android.view.Surface
 import io.flutter.view.TextureRegistry
 
@@ -12,6 +13,10 @@ internal class GStreamerController(
     private var textureEntry: TextureRegistry.SurfaceTextureEntry? = null
     private var surface: Surface? = null
     private var nativeInitialized = false
+
+    companion object {
+        private const val TAG = "GStreamerController"
+    }
 
     fun createTexture(width: Int, height: Int): Long {
         ensureNativeReady()
@@ -73,6 +78,18 @@ internal class GStreamerController(
     private fun ensureNativeReady() {
         if (nativeInitialized) return
         GStreamerNative.ensureLoaded()
+        
+        // Initialize GStreamer via the Java helper class first.
+        // This sets up the application context and class loader required by
+        // the androidmedia plugin to access Android camera APIs.
+        try {
+            org.freedesktop.gstreamer.GStreamer.init(context.applicationContext)
+            Log.i(TAG, "GStreamer.init() completed successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "GStreamer.init() failed: ${e.message}", e)
+            // Continue anyway - the native init might still work for basic functionality
+        }
+        
         GStreamerNative.init(context.applicationContext)
         nativeInitialized = true
     }

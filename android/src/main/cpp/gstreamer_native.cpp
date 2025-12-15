@@ -64,6 +64,10 @@ constexpr const char *kFlagAhc = "1";
 #else
 constexpr const char *kFlagAhc = "0";
 #endif
+
+// Track if the JNI VM has been set for GStreamer Android media plugins.
+bool g_jni_vm_set = false;
+
 struct GstContextState {
     GstElement *pipeline = nullptr;
     ANativeWindow *window = nullptr;
@@ -244,7 +248,21 @@ void ensure_gst_init_unlocked() {
         g_state.main_loop_started = true;
         logInfo("Started GLib main loop thread");
     }
-    
+
+#ifdef GST_ANDROIDMEDIA_AVAILABLE
+    // Initialize GStreamer Android JNI subsystem BEFORE registering androidmedia plugin.
+    // This ensures gst_amc_jni_get_env() works during plugin registration and that
+    // Java classes (Camera, MediaCodec, etc.) can be loaded via the application class loader.
+    // NOTE: gst_amc_jni_set_java_vm() must have been called before this point (in init()).
+    if (g_jni_vm_set) {
+        gst_amc_jni_initialize();
+        __android_log_print(ANDROID_LOG_INFO, kTag, "gst_amc_jni_initialize called");
+    } else {
+        __android_log_print(ANDROID_LOG_WARN, kTag, 
+            "JavaVM not set - androidmedia plugin may not work. Call init() first!");
+    }
+#endif
+
     // Register all necessary plugins
     GST_PLUGIN_STATIC_REGISTER(coreelements);  // videoconvert, appsink, appsrc, videoscale
     GST_PLUGIN_STATIC_REGISTER(app);           // app elements
@@ -263,6 +281,14 @@ void ensure_gst_init_unlocked() {
         GstPlugin *plugin = gst_registry_find_plugin(gst_registry_get(), "androidmedia");
         __android_log_print(ANDROID_LOG_INFO, kTag, "Static register androidmedia: %s", plugin ? "ok" : "fail");
         if (plugin) gst_object_unref(plugin);
+        
+        // Check if camera elements are now available
+        GstElementFactory *ahcsrc_factory = gst_element_factory_find("ahcsrc");
+        GstElementFactory *ahc2src_factory = gst_element_factory_find("ahc2src");
+        __android_log_print(ANDROID_LOG_INFO, kTag, "Camera elements: ahcsrc=%s ahc2src=%s",
+                            ahcsrc_factory ? "yes" : "no", ahc2src_factory ? "yes" : "no");
+        if (ahcsrc_factory) gst_object_unref(ahcsrc_factory);
+        if (ahc2src_factory) gst_object_unref(ahc2src_factory);
     }
 #endif
 #ifdef GST_VIDEOCONVERT_AVAILABLE
@@ -517,12 +543,18 @@ Java_com_example_kataglyphis_1native_1inference_GStreamerNative_init(
 
 #ifdef GST_ANDROIDMEDIA_AVAILABLE
     // Ensure GStreamer Android JNI helpers can attach threads and access Java APIs.
-    // If this is not done, androidmedia registration can fail and camera elements
-    // like androidvideosource won't be available.
-    JavaVM *vm = nullptr;
-    if (env && env->GetJavaVM(&vm) == JNI_OK && vm) {
-        gst_amc_jni_set_java_vm(vm);
-        gst_amc_jni_initialize();
+    // gst_amc_jni_set_java_vm MUST be called before gst_amc_jni_initialize() 
+    // (which is called in ensure_gst_init_unlocked) so that the androidmedia
+    // plugin can access Java classes (Camera, MediaCodec, etc.).
+    if (!g_jni_vm_set) {
+        JavaVM *vm = nullptr;
+        if (env && env->GetJavaVM(&vm) == JNI_OK && vm) {
+            gst_amc_jni_set_java_vm(vm);
+            g_jni_vm_set = true;
+            __android_log_print(ANDROID_LOG_INFO, kTag, "Set JavaVM for GStreamer: %p", vm);
+        } else {
+            __android_log_print(ANDROID_LOG_ERROR, kTag, "Failed to get JavaVM from JNIEnv");
+        }
     }
 #endif
 
