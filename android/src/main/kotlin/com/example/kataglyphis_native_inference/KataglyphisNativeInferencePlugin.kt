@@ -35,6 +35,7 @@ class KataglyphisNativeInferencePlugin :
             "getPlatformVersion" -> result.success("Android ${android.os.Build.VERSION.RELEASE}")
             "create" -> handleCreate(call, result)
             "setPipeline" -> handleSetPipeline(call, result)
+            "diagnose" -> handleDiagnose(result)
             "play" -> handleNoArgCommand(result) { controller -> controller.play() }
             "pause" -> handleNoArgCommand(result) { controller -> controller.pause() }
             "stop" -> handleNoArgCommand(result) { controller -> controller.stop() }
@@ -92,12 +93,28 @@ class KataglyphisNativeInferencePlugin :
             .onSuccess { result.success(null) }
             .onFailure { throwable ->
                 Log.e("KataglyphisGStreamer", "setPipeline failed for: $pipeline", throwable)
+
+                val nativeDetails = runCatching { GStreamerNative.getLastError() }.getOrNull()
+                val details = listOfNotNull(throwable.message, nativeDetails)
+                    .joinToString("\n")
+                    .ifBlank { "setPipeline failed" }
                 result.error(
                     "command_failed",
-                    "setPipeline failed; check that required elements are available",
+                    details,
                     null,
                 )
             }
+    }
+
+    private fun handleDiagnose(result: Result) {
+        runCatching {
+            GStreamerNative.diagnose()
+        }.onSuccess { report ->
+            result.success(report)
+        }.onFailure { throwable ->
+            Log.e("KataglyphisGStreamer", "diagnose failed", throwable)
+            result.error("command_failed", throwable.message, null)
+        }
     }
 
     private fun handleSetColor(call: MethodCall, result: Result) {

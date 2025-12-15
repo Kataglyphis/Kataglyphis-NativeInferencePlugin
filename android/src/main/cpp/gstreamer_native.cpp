@@ -7,20 +7,42 @@
 #include <gst/video/videooverlay.h>
 #include <gst/app/gstappsink.h>
 
+#include <glib.h>
+
+#include <thread>
+
+// The GStreamer Android SDK provides JNI helpers (libgstandroidmedia) that need the JavaVM
+// to be set before plugins like androidmedia can initialize/register correctly.
+// The SDK doesn't always ship public headers for these helpers; declare what we use.
+extern "C" {
+#ifdef GST_ANDROIDMEDIA_AVAILABLE
+void gst_amc_jni_set_java_vm(JavaVM *java_vm);
+void gst_amc_jni_initialize(void);
+#endif
+}
+
 // Register the static plugins we link in.
 // Wrap in extern "C" so the symbols keep C linkage and match the plugin archives.
 extern "C" {
 GST_PLUGIN_STATIC_DECLARE(coreelements);  // Contains videoconvert, videoscale, appsink, appsrc
 GST_PLUGIN_STATIC_DECLARE(app);
 GST_PLUGIN_STATIC_DECLARE(videotestsrc);
+#ifdef GST_AUTODETECT_AVAILABLE
+GST_PLUGIN_STATIC_DECLARE(autodetect);
+#endif
 #ifdef GST_ANDROIDMEDIA_AVAILABLE
 GST_PLUGIN_STATIC_DECLARE(androidmedia);  // Android media plugin (Camera1) - if available
 #endif
 #ifdef GST_VIDEOCONVERT_AVAILABLE
-GST_PLUGIN_STATIC_DECLARE(videoconvert);  // Explicit video format conversion plugin (if available)
+// Many GStreamer Android SDKs ship videoconvert/videoscale in the combined plugin "videoconvertscale".
+GST_PLUGIN_STATIC_DECLARE(videoconvertscale);
 #endif
 #ifdef GST_AHC_AVAILABLE
 GST_PLUGIN_STATIC_DECLARE(ahc);           // Android Camera NDK (Camera2) - modern camera source
+// Some GStreamer Android SDK builds ship the Camera2 NDK source under the plugin name "ndk".
+// Our CMake already keeps `gst_plugin_ndk_register` alive, but we must also declare/register it
+// here to make elements like `ahc2src`/`ahcsrc` available at runtime.
+GST_PLUGIN_STATIC_DECLARE(ndk);
 #endif
 GST_PLUGIN_STATIC_DECLARE(opengl);
 }
@@ -31,14 +53,43 @@ GST_PLUGIN_STATIC_DECLARE(opengl);
 namespace {
 constexpr const char *kTag = "KataglyphisGStreamer";
 
+#ifdef GST_ANDROIDMEDIA_AVAILABLE
+constexpr const char *kFlagAndroidMedia = "1";
+#else
+constexpr const char *kFlagAndroidMedia = "0";
+#endif
+
+#ifdef GST_AHC_AVAILABLE
+constexpr const char *kFlagAhc = "1";
+#else
+constexpr const char *kFlagAhc = "0";
+#endif
 struct GstContextState {
     GstElement *pipeline = nullptr;
     ANativeWindow *window = nullptr;
     bool initialized = false;
+
+    // Some Android camera sources rely on a running GLib main loop.
+    // We start one once per process and keep it running.
+    GMainContext *main_context = nullptr;
+    GMainLoop *main_loop = nullptr;
+    bool main_loop_started = false;
 };
 
 std::mutex g_mutex;
 GstContextState g_state;
+std::string g_last_error;
+
+void setLastError(const std::string &msg) {
+    g_last_error = msg;
+    __android_log_print(ANDROID_LOG_ERROR, kTag, "%s", msg.c_str());
+}
+
+void appendLastError(const std::string &msg) {
+    if (!g_last_error.empty()) g_last_error += "\n";
+    g_last_error += msg;
+    __android_log_print(ANDROID_LOG_ERROR, kTag, "%s", msg.c_str());
+}
 
 void logError(const char *msg) {
     __android_log_print(ANDROID_LOG_ERROR, kTag, "%s", msg);
@@ -68,8 +119,10 @@ void logBusMessages(GstBus *bus) {
                 GError *err = nullptr;
                 gchar *dbg = nullptr;
                 gst_message_parse_error(msg, &err, &dbg);
-                __android_log_print(ANDROID_LOG_ERROR, kTag, "bus error: %s (%s)",
-                                    err ? err->message : "unknown", dbg ? dbg : "no debug");
+                const std::string line = std::string("bus error: ") +
+                                         (err ? err->message : "unknown") +
+                                         " (" + (dbg ? dbg : "no debug") + ")";
+                appendLastError(line);
                 if (err) g_error_free(err);
                 if (dbg) g_free(dbg);
                 break;
@@ -78,8 +131,10 @@ void logBusMessages(GstBus *bus) {
                 GError *err = nullptr;
                 gchar *dbg = nullptr;
                 gst_message_parse_warning(msg, &err, &dbg);
-                __android_log_print(ANDROID_LOG_WARN, kTag, "bus warning: %s (%s)",
-                                    err ? err->message : "unknown", dbg ? dbg : "no debug");
+                const std::string line = std::string("bus warning: ") +
+                                         (err ? err->message : "unknown") +
+                                         " (" + (dbg ? dbg : "no debug") + ")";
+                appendLastError(line);
                 if (err) g_error_free(err);
                 if (dbg) g_free(dbg);
                 break;
@@ -103,8 +158,10 @@ void logBusMessagesWithWait(GstBus *bus, guint64 timeoutNanos) {
                 GError *err = nullptr;
                 gchar *dbg = nullptr;
                 gst_message_parse_error(msg, &err, &dbg);
-                __android_log_print(ANDROID_LOG_ERROR, kTag, "bus error: %s (%s)",
-                                    err ? err->message : "unknown", dbg ? dbg : "no debug");
+                const std::string line = std::string("bus error: ") +
+                                         (err ? err->message : "unknown") +
+                                         " (" + (dbg ? dbg : "no debug") + ")";
+                appendLastError(line);
                 if (err) g_error_free(err);
                 if (dbg) g_free(dbg);
                 break;
@@ -113,8 +170,10 @@ void logBusMessagesWithWait(GstBus *bus, guint64 timeoutNanos) {
                 GError *err = nullptr;
                 gchar *dbg = nullptr;
                 gst_message_parse_warning(msg, &err, &dbg);
-                __android_log_print(ANDROID_LOG_WARN, kTag, "bus warning: %s (%s)",
-                                    err ? err->message : "unknown", dbg ? dbg : "no debug");
+                const std::string line = std::string("bus warning: ") +
+                                         (err ? err->message : "unknown") +
+                                         " (" + (dbg ? dbg : "no debug") + ")";
+                appendLastError(line);
                 if (err) g_error_free(err);
                 if (dbg) g_free(dbg);
                 break;
@@ -123,8 +182,10 @@ void logBusMessagesWithWait(GstBus *bus, guint64 timeoutNanos) {
                 GError *err = nullptr;
                 gchar *dbg = nullptr;
                 gst_message_parse_info(msg, &err, &dbg);
-                __android_log_print(ANDROID_LOG_INFO, kTag, "bus info: %s (%s)",
-                                    err ? err->message : "unknown", dbg ? dbg : "no debug");
+                const std::string line = std::string("bus info: ") +
+                                         (err ? err->message : "unknown") +
+                                         " (" + (dbg ? dbg : "no debug") + ")";
+                __android_log_print(ANDROID_LOG_INFO, kTag, "%s", line.c_str());
                 if (err) g_error_free(err);
                 if (dbg) g_free(dbg);
                 break;
@@ -163,19 +224,54 @@ void ensure_gst_init_unlocked() {
     int argc = 0;
     char **argv = nullptr;
     gst_init(&argc, &argv);
+
+    __android_log_print(ANDROID_LOG_INFO, kTag,
+                        "Compile flags: androidmedia=%s ahc=%s",
+                        kFlagAndroidMedia, kFlagAhc);
+
+    // Start a GLib main loop in the background. This is frequently required for Android
+    // camera sources (Camera1/Camera2) to post callbacks and state changes.
+    if (!g_state.main_loop_started) {
+        g_state.main_context = g_main_context_new();
+        g_state.main_loop = g_main_loop_new(g_state.main_context, FALSE);
+        GMainContext *ctx = g_state.main_context;
+        GMainLoop *loop = g_state.main_loop;
+        std::thread([ctx, loop]() {
+            g_main_context_push_thread_default(ctx);
+            g_main_loop_run(loop);
+            g_main_context_pop_thread_default(ctx);
+        }).detach();
+        g_state.main_loop_started = true;
+        logInfo("Started GLib main loop thread");
+    }
     
     // Register all necessary plugins
     GST_PLUGIN_STATIC_REGISTER(coreelements);  // videoconvert, appsink, appsrc, videoscale
     GST_PLUGIN_STATIC_REGISTER(app);           // app elements
     GST_PLUGIN_STATIC_REGISTER(videotestsrc);  // test patterns
+#ifdef GST_AUTODETECT_AVAILABLE
+    {
+        gst_plugin_autodetect_register();
+        GstPlugin *plugin = gst_registry_find_plugin(gst_registry_get(), "autodetect");
+        __android_log_print(ANDROID_LOG_INFO, kTag, "Static register autodetect: %s", plugin ? "ok" : "fail");
+        if (plugin) gst_object_unref(plugin);
+    }
+#endif
 #ifdef GST_ANDROIDMEDIA_AVAILABLE
-    GST_PLUGIN_STATIC_REGISTER(androidmedia);  // Android camera (legacy/camera1) - if available
+    {
+        gst_plugin_androidmedia_register();
+        GstPlugin *plugin = gst_registry_find_plugin(gst_registry_get(), "androidmedia");
+        __android_log_print(ANDROID_LOG_INFO, kTag, "Static register androidmedia: %s", plugin ? "ok" : "fail");
+        if (plugin) gst_object_unref(plugin);
+    }
 #endif
 #ifdef GST_VIDEOCONVERT_AVAILABLE
-    GST_PLUGIN_STATIC_REGISTER(videoconvert);  // Video format conversion (if available as separate plugin)
+    // Video format conversion + scaling (combined plugin in many Android SDK builds).
+    GST_PLUGIN_STATIC_REGISTER(videoconvertscale);
 #endif
 #ifdef GST_AHC_AVAILABLE
     GST_PLUGIN_STATIC_REGISTER(ahc);           // Android Camera2 NDK (modern, preferred for Pixel 4+)
+    GST_PLUGIN_STATIC_REGISTER(ndk);           // Android Camera2 NDK (alternate plugin name)
 #endif
     GST_PLUGIN_STATIC_REGISTER(opengl);        // glimagesink, etc
     
@@ -196,6 +292,92 @@ void ensure_gst_init_unlocked() {
     
     g_state.initialized = true;
     logInfo("GStreamer initialized");
+}
+
+bool has_element_factory(const char *name) {
+    if (!name) return false;
+    GstElementFactory *factory = gst_element_factory_find(name);
+    if (!factory) return false;
+    gst_object_unref(factory);
+    return true;
+}
+
+std::string diagnose_gstreamer_unlocked() {
+    std::string out;
+    out += "plugins:";
+
+    const char *pluginNames[] = {
+        "coreelements",
+        "app",
+        "videotestsrc",
+        "autodetect",
+        "opengl",
+        "videoconvertscale",
+        "androidmedia",
+        "ahc",
+        "ndk",
+    };
+    for (const char *p : pluginNames) {
+        GstPlugin *plugin = gst_registry_find_plugin(gst_registry_get(), p);
+        out += "\n- ";
+        out += p;
+        out += ": ";
+        out += (plugin ? "yes" : "no");
+        if (plugin) gst_object_unref(plugin);
+    }
+
+    out += "\n\nelements:";
+    const char *elementNames[] = {
+        "ahc2src",
+        "ahcsrc",
+        "androidvideosource",
+        "autovideosrc",
+        "videotestsrc",
+        "videoconvert",
+        "videoscale",
+        "glimagesink",
+        "glupload",
+        "glcolorconvert",
+        "appsink",
+    };
+    for (const char *e : elementNames) {
+        out += "\n- ";
+        out += e;
+        out += ": ";
+        out += (has_element_factory(e) ? "yes" : "no");
+    }
+
+    return out;
+}
+
+bool ensure_first_element_exists_unlocked(const std::string &pipelineDesc) {
+    // We only inspect the first element name (up to first whitespace or '!'),
+    // which matches how the app builds pipelines.
+    std::string first = pipelineDesc;
+    const size_t bang = first.find('!');
+    if (bang != std::string::npos) first = first.substr(0, bang);
+
+    const size_t start = first.find_first_not_of(" \t\n\r");
+    if (start == std::string::npos) {
+        setLastError("Pipeline string has no elements");
+        return false;
+    }
+    first = first.substr(start);
+
+    const size_t end = first.find_last_not_of(" \t\n\r");
+    if (end != std::string::npos) first = first.substr(0, end + 1);
+
+    const size_t ws = first.find_first_of(" \t\n\r");
+    const std::string factoryName = (ws == std::string::npos) ? first : first.substr(0, ws);
+
+    GstElementFactory *factory = gst_element_factory_find(factoryName.c_str());
+    if (!factory) {
+        setLastError(std::string("Missing GStreamer element: ") + factoryName);
+        appendLastError("Diagnose:\n" + diagnose_gstreamer_unlocked());
+        return false;
+    }
+    gst_object_unref(factory);
+    return true;
 }
 
 void release_pipeline_unlocked() {
@@ -332,7 +514,18 @@ Java_com_example_kataglyphis_1native_1inference_GStreamerNative_init(
         jclass /*clazz*/,
         jobject context) {
     std::lock_guard<std::mutex> lock(g_mutex);
-    (void)env;
+
+#ifdef GST_ANDROIDMEDIA_AVAILABLE
+    // Ensure GStreamer Android JNI helpers can attach threads and access Java APIs.
+    // If this is not done, androidmedia registration can fail and camera elements
+    // like androidvideosource won't be available.
+    JavaVM *vm = nullptr;
+    if (env && env->GetJavaVM(&vm) == JNI_OK && vm) {
+        gst_amc_jni_set_java_vm(vm);
+        gst_amc_jni_initialize();
+    }
+#endif
+
     (void)context;
     ensure_gst_init_unlocked();
 }
@@ -341,25 +534,37 @@ extern "C" JNIEXPORT jboolean JNICALL
 Java_com_example_kataglyphis_1native_1inference_GStreamerNative_create(
         JNIEnv *env,
         jclass /*clazz*/,
-        jobject surface,
-        jint /*width*/, jint /*height*/) {
+        jobject surface) {
     std::lock_guard<std::mutex> lock(g_mutex);
-    ensure_gst_init_unlocked();
-
-    release_pipeline_unlocked();
-    release_window_unlocked();
-
     if (!surface) {
-        logError("Surface is null");
+        setLastError("Surface is null");
         return JNI_FALSE;
     }
 
     g_state.window = ANativeWindow_fromSurface(env, surface);
     if (!g_state.window) {
-        logError("Failed to acquire ANativeWindow");
+        setLastError("Failed to acquire ANativeWindow");
         return JNI_FALSE;
     }
     return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_example_kataglyphis_1native_1inference_GStreamerNative_getLastError(
+        JNIEnv *env,
+        jclass /*clazz*/) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    return env->NewStringUTF(g_last_error.c_str());
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_example_kataglyphis_1native_1inference_GStreamerNative_diagnose(
+        JNIEnv *env,
+        jclass /*clazz*/) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    ensure_gst_init_unlocked();
+    const std::string report = diagnose_gstreamer_unlocked();
+    return env->NewStringUTF(report.c_str());
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
@@ -369,9 +574,10 @@ Java_com_example_kataglyphis_1native_1inference_GStreamerNative_setPipeline(
         jstring pipelineStr) {
     std::lock_guard<std::mutex> lock(g_mutex);
     ensure_gst_init_unlocked();
+    g_last_error.clear();
 
     if (!g_state.window) {
-        logError("Window not created before setPipeline");
+        setLastError("Window not created before setPipeline");
         return JNI_FALSE;
     }
 
@@ -380,18 +586,22 @@ Java_com_example_kataglyphis_1native_1inference_GStreamerNative_setPipeline(
     if (cStr) env->ReleaseStringUTFChars(pipelineStr, cStr);
 
     if (pipelineDesc.empty()) {
-        logError("Pipeline string is empty");
+        setLastError("Pipeline string is empty");
         return JNI_FALSE;
     }
+
+    // Fast-fail for missing source elements to avoid 20s ASYNC waits.
+    if (!ensure_first_element_exists_unlocked(pipelineDesc)) return JNI_FALSE;
 
     release_pipeline_unlocked();
 
     GError *err = nullptr;
     GstElement *pipeline = gst_parse_launch(pipelineDesc.c_str(), &err);
     if (!pipeline) {
-        logError("gst_parse_launch returned null");
+        setLastError("gst_parse_launch returned null");
         if (err) {
             __android_log_print(ANDROID_LOG_ERROR, kTag, "parse error: %s", err->message);
+            setLastError(std::string("parse error: ") + err->message);
             g_error_free(err);
         }
         return JNI_FALSE;
@@ -418,7 +628,7 @@ Java_com_example_kataglyphis_1native_1inference_GStreamerNative_setPipeline(
     gst_iterator_free(it);
     
     if (!hasVideoSink) {
-        logError("No video sink (glimagesink or appsink) found in pipeline");
+        setLastError("No video sink (glimagesink or appsink) found in pipeline");
         gst_object_unref(pipeline);
         return JNI_FALSE;
     }
@@ -426,7 +636,7 @@ Java_com_example_kataglyphis_1native_1inference_GStreamerNative_setPipeline(
     // Only bind overlay if we found a video overlay sink
     if (overlay && g_state.window) {
         if (!bind_overlay(pipeline, g_state.window)) {
-            logError("Failed to bind video overlay");
+            setLastError("Failed to bind video overlay");
             gst_object_unref(pipeline);
             return JNI_FALSE;
         }
@@ -439,7 +649,13 @@ Java_com_example_kataglyphis_1native_1inference_GStreamerNative_setPipeline(
     __android_log_print(ANDROID_LOG_INFO, kTag, "setPipeline set_state(PAUSED): %s",
                         stateChangeReturnToStr(ret));
     if (ret == GST_STATE_CHANGE_FAILURE) {
-        logError("Failed to preroll pipeline");
+        setLastError("Failed to preroll pipeline");
+
+        // Capture detailed element errors (e.g. camera open failures) from the bus.
+        GstBus *bus = gst_element_get_bus(pipeline);
+        logBusMessagesWithWait(bus, 500000000);  // 500ms
+        if (bus) gst_object_unref(bus);
+
         gst_element_set_state(pipeline, GST_STATE_NULL);
         gst_object_unref(pipeline);
         return JNI_FALSE;
@@ -453,20 +669,24 @@ Java_com_example_kataglyphis_1native_1inference_GStreamerNative_setPipeline(
         ret = waitRet;
         
         if (ret == GST_STATE_CHANGE_ASYNC) {
-            logError("Pipeline still ASYNC after 20s - caps negotiation failed or source unavailable");
-            // Log pipeline details for debugging
-            gchar *pipelineDesc = gst_element_get_name(pipeline);
-            __android_log_print(ANDROID_LOG_ERROR, kTag, "Pipeline: %s", pipelineDesc);
-            g_free(pipelineDesc);
-            
+            setLastError("Pipeline still ASYNC after 20s - caps negotiation failed or source unavailable");
+
             // Try to get more detailed error info from bus
-            logBusMessagesWithWait(GST_ELEMENT_BUS(pipeline), 100000000);  // 100ms
+            GstBus *bus = gst_element_get_bus(pipeline);
+            logBusMessagesWithWait(bus, 100000000);  // 100ms
+            if (bus) gst_object_unref(bus);
+
+            appendLastError("Diagnose:\n" + diagnose_gstreamer_unlocked());
         }
     }
 
     // Only accept SUCCESS or NO_PREROLL as valid results
     if (ret == GST_STATE_CHANGE_FAILURE || ret == GST_STATE_CHANGE_ASYNC) {
-        logError("Pipeline failed to reach PAUSED state");
+        if (g_last_error.empty()) {
+            setLastError("Pipeline failed to reach PAUSED state");
+        } else {
+            appendLastError("Pipeline failed to reach PAUSED state");
+        }
         gst_element_set_state(pipeline, GST_STATE_NULL);
         gst_object_unref(pipeline);
         return JNI_FALSE;
@@ -493,6 +713,13 @@ Java_com_example_kataglyphis_1native_1inference_GStreamerNative_play(
         ret = waitRet;
     }
 
+    if (ret == GST_STATE_CHANGE_FAILURE) {
+        setLastError("Failed to set pipeline to PLAYING");
+        GstBus *bus = gst_element_get_bus(g_state.pipeline);
+        logBusMessagesWithWait(bus, 500000000);  // 500ms
+        if (bus) gst_object_unref(bus);
+    }
+
     return ret != GST_STATE_CHANGE_FAILURE;
 }
 
@@ -513,7 +740,6 @@ Java_com_example_kataglyphis_1native_1inference_GStreamerNative_pause(
         ret = waitRet;
     }
 
-    return ret != GST_STATE_CHANGE_FAILURE;
     return ret != GST_STATE_CHANGE_FAILURE;
 }
 

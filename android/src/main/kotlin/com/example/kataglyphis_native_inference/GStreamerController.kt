@@ -96,6 +96,8 @@ internal object GStreamerNative {
     external fun init(context: Context)
     external fun create(surface: Surface, width: Int, height: Int): Boolean
     external fun setPipeline(pipeline: String): Boolean
+    external fun getLastError(): String
+    external fun diagnose(): String
     external fun play(): Boolean
     external fun pause(): Boolean
     external fun stop(): Boolean

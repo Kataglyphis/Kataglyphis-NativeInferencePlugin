@@ -126,9 +126,18 @@ find_library(GST_VIDEOTESTSRC_LIB
     NO_DEFAULT_PATH
     REQUIRED)
 
-# Android media plugin - note: library is named 'gstandroidmedia' (without -1.0 suffix)
+# Autodetect plugin (provides autovideosrc).
+find_library(GST_AUTODETECT_LIB
+    NAMES gstautodetect-1.0 gstautodetect
+    HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0
+    NO_DEFAULT_PATH)
+
+# Android media plugin.
+# In the GStreamer SDK this typically follows the pattern libgst<plugin>.a/.so,
+# i.e. libgstandroidmedia.* (NOT libgstandroidmedia.*).
 find_library(GST_ANDROIDMEDIA_LIB
-    NAMES gstandroidmedia gstandroidmedia-1.0
+    NAMES
+        gstandroidmedia gstandroidmedia-1.0
     HINTS 
         ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0
         ${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}/lib/gstreamer-1.0
@@ -165,7 +174,9 @@ find_library(GST_GL_LIB
 
 # Video format conversion and filters (optional - may be part of coreelements)
 find_library(GST_VIDEOCONVERT_LIB
-    NAMES gstvideoconvert-1.0 gstvideoconvert
+    NAMES
+        gstvideoconvert-1.0 gstvideoconvert
+        gstvideoconvertscale-1.0 gstvideoconvertscale
     HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0
     NO_DEFAULT_PATH)
 
@@ -246,6 +257,10 @@ if(GST_VIDEOCONVERT_LIB)
     target_compile_definitions(kataglyphis_native_inference PRIVATE GST_VIDEOCONVERT_AVAILABLE)
     message(STATUS "Enabling GST_VIDEOCONVERT_AVAILABLE")
 endif()
+if(GST_AUTODETECT_LIB)
+    target_compile_definitions(kataglyphis_native_inference PRIVATE GST_AUTODETECT_AVAILABLE)
+    message(STATUS "Enabling GST_AUTODETECT_AVAILABLE")
+endif()
 
 # Build plugin list for whole-archive
 set(_WHOLE_ARCHIVE_PLUGINS
@@ -282,7 +297,16 @@ if(GST_VIDEOCONVERT_LIB)
 endif()
 if(GST_VIDEOSCALE_LIB)
     message(STATUS "Videoscale plugin: FOUND")
-    list(APPEND _WHOLE_ARCHIVE_PLUGINS ${GST_VIDEOSCALE_LIB})
+    # Avoid duplicate symbols if videoscale is provided by videoconvertscale (combined plugin).
+    if(NOT GST_VIDEOSCALE_LIB STREQUAL GST_VIDEOCONVERT_LIB)
+        list(APPEND _WHOLE_ARCHIVE_PLUGINS ${GST_VIDEOSCALE_LIB})
+    endif()
+endif()
+if(GST_AUTODETECT_LIB)
+    message(STATUS "Autodetect plugin: FOUND (${GST_AUTODETECT_LIB})")
+    list(APPEND _WHOLE_ARCHIVE_PLUGINS ${GST_AUTODETECT_LIB})
+else()
+    message(STATUS "Autodetect plugin: NOT FOUND")
 endif()
 message(STATUS "======================================")
 
@@ -338,10 +362,16 @@ if(GST_AHC_LIB)
     list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_ahc_register -Wl,-u,gst_plugin_ndk_register)
 endif()
 if(GST_VIDEOCONVERT_LIB)
-    list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_videoconvert_register)
+    list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_videoconvertscale_register)
 endif()
 if(GST_VIDEOSCALE_LIB)
-    list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_videoscale_register)
+    # Avoid forcing an unresolved symbol if videoscale comes from the combined videoconvertscale plugin.
+    if(NOT GST_VIDEOSCALE_LIB STREQUAL GST_VIDEOCONVERT_LIB)
+        list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_videoscale_register)
+    endif()
+endif()
+if(GST_AUTODETECT_LIB)
+    list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_autodetect_register)
 endif()
 
 target_link_options(kataglyphis_native_inference PRIVATE ${_PLUGIN_SYMBOLS})
