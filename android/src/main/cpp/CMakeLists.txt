@@ -423,21 +423,30 @@ target_link_libraries(kataglyphis_native_inference
         GLESv2
         mediandk     # Required for androidmedia plugin (Camera2 API)
         camera2ndk   # Required for ahc2src element (Camera2 NDK)
-        ${GStreamer_ROOT_DIR}/lib/libintl.a
+        ${INTL_LIBRARY}
         m
         dl
         atomic)
 
 # Keep plugin register symbols alive
 set(_PLUGIN_SYMBOLS
-    -Wl,-u,gst_plugin_coreelements_register
-    -Wl,-u,gst_plugin_app_register
-    -Wl,-u,gst_plugin_videotestsrc_register
-    -Wl,-u,gst_plugin_opengl_register
     # Keep JNI_OnLoad from libgstreamer-1.0.a alive - this registers the native method
     # for org.freedesktop.gstreamer.GStreamer.nativeInit() which sets up the application
     # context and class loader needed by the androidmedia plugin.
     -Wl,-u,JNI_OnLoad)
+
+if(GST_COREELEMENTS_LIB)
+    list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_coreelements_register)
+endif()
+if(GST_APP_LIB)
+    list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_app_register)
+endif()
+if(GST_VIDEOTESTSRC_LIB)
+    list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_videotestsrc_register)
+endif()
+if(GST_OPENGL_LIB)
+    list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_opengl_register)
+endif()
 if(GST_ANDROIDMEDIA_LIB)
     list(APPEND _PLUGIN_SYMBOLS -Wl,-u,gst_plugin_androidmedia_register)
 endif()
