@@ -24,6 +24,7 @@ find_path(GSTREAMER_INCLUDE_DIR
         ${GStreamer_ROOT_DIR}/include
     PATH_SUFFIXES gstreamer-1.0
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 # Find GLib include directories (required by GStreamer)
@@ -32,6 +33,7 @@ find_path(GLIB_INCLUDE_DIR
     HINTS ${GStreamer_ROOT_DIR}/include
     PATH_SUFFIXES glib-2.0
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 find_path(GLIB_CONFIG_INCLUDE_DIR
@@ -41,6 +43,7 @@ find_path(GLIB_CONFIG_INCLUDE_DIR
         ${GStreamer_ROOT_DIR}/lib
     PATH_SUFFIXES glib-2.0/include
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 # Determine library suffix based on static/shared preference
@@ -55,24 +58,28 @@ find_library(GSTREAMER_LIBRARY
     NAMES gstreamer-1.0 libgstreamer-1.0
     HINTS ${GStreamer_ROOT_DIR}/lib
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 find_library(GSTREAMER_BASE_LIBRARY
     NAMES gstbase-1.0 libgstbase-1.0
     HINTS ${GStreamer_ROOT_DIR}/lib
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 find_library(GSTREAMER_VIDEO_LIBRARY
     NAMES gstvideo-1.0 libgstvideo-1.0
     HINTS ${GStreamer_ROOT_DIR}/lib
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 find_library(GSTREAMER_APP_LIBRARY
     NAMES gstapp-1.0 libgstapp-1.0
     HINTS ${GStreamer_ROOT_DIR}/lib
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 # Find GLib libraries (dependencies)
@@ -80,18 +87,21 @@ find_library(GLIB_LIBRARY
     NAMES glib-2.0 libglib-2.0
     HINTS ${GStreamer_ROOT_DIR}/lib
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 find_library(GOBJECT_LIBRARY
     NAMES gobject-2.0 libgobject-2.0
     HINTS ${GStreamer_ROOT_DIR}/lib
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 find_library(GIO_LIBRARY
     NAMES gio-2.0 libgio-2.0
     HINTS ${GStreamer_ROOT_DIR}/lib
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 # Find INTL library (often required on Android)
@@ -99,6 +109,7 @@ find_library(INTL_LIBRARY
     NAMES intl libintl
     HINTS ${GStreamer_ROOT_DIR}/lib
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
 )
 
 # Try to get version from pkgconfig
