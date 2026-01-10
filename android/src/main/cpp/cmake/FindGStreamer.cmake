@@ -16,12 +16,28 @@ endif()
 
 message(STATUS "FindGStreamer: Using GStreamer_ROOT_DIR=${GStreamer_ROOT_DIR}")
 
+# The Android GStreamer SDK can be laid out in (at least) two ways:
+#  - "classic" prefix: include/ + lib/ under GStreamer_ROOT_DIR
+#  - "flat" prefix (as in our GHCR image): headers and .a/.so live directly under GStreamer_ROOT_DIR
+#    with directories like gstreamer-1.0/, glib-2.0/, pkgconfig/ at the top.
+
+set(_GSTREAMER_INCLUDE_HINTS
+    ${GStreamer_ROOT_DIR}/include
+    ${GStreamer_ROOT_DIR}
+)
+
+set(_GSTREAMER_LIBRARY_HINTS
+    ${GStreamer_ROOT_DIR}/lib
+    ${GStreamer_ROOT_DIR}
+)
+
 # Find GStreamer include directory
 find_path(GSTREAMER_INCLUDE_DIR
     NAMES gst/gst.h
     HINTS 
         ${GStreamer_ROOT_DIR}/include/gstreamer-1.0
         ${GStreamer_ROOT_DIR}/include
+        ${GStreamer_ROOT_DIR}
     PATH_SUFFIXES gstreamer-1.0
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
@@ -30,7 +46,7 @@ find_path(GSTREAMER_INCLUDE_DIR
 # Find GLib include directories (required by GStreamer)
 find_path(GLIB_INCLUDE_DIR
     NAMES glib.h
-    HINTS ${GStreamer_ROOT_DIR}/include
+    HINTS ${_GSTREAMER_INCLUDE_HINTS}
     PATH_SUFFIXES glib-2.0
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
@@ -40,7 +56,9 @@ find_path(GLIB_CONFIG_INCLUDE_DIR
     NAMES glibconfig.h
     HINTS 
         ${GStreamer_ROOT_DIR}/lib/glib-2.0/include
+        ${GStreamer_ROOT_DIR}/glib-2.0/include
         ${GStreamer_ROOT_DIR}/lib
+        ${GStreamer_ROOT_DIR}
     PATH_SUFFIXES glib-2.0/include
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
@@ -56,28 +74,28 @@ endif()
 # Find core GStreamer libraries
 find_library(GSTREAMER_LIBRARY
     NAMES gstreamer-1.0 libgstreamer-1.0
-    HINTS ${GStreamer_ROOT_DIR}/lib
+    HINTS ${_GSTREAMER_LIBRARY_HINTS}
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
 )
 
 find_library(GSTREAMER_BASE_LIBRARY
     NAMES gstbase-1.0 libgstbase-1.0
-    HINTS ${GStreamer_ROOT_DIR}/lib
+    HINTS ${_GSTREAMER_LIBRARY_HINTS}
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
 )
 
 find_library(GSTREAMER_VIDEO_LIBRARY
     NAMES gstvideo-1.0 libgstvideo-1.0
-    HINTS ${GStreamer_ROOT_DIR}/lib
+    HINTS ${_GSTREAMER_LIBRARY_HINTS}
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
 )
 
 find_library(GSTREAMER_APP_LIBRARY
     NAMES gstapp-1.0 libgstapp-1.0
-    HINTS ${GStreamer_ROOT_DIR}/lib
+    HINTS ${_GSTREAMER_LIBRARY_HINTS}
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
 )
@@ -85,21 +103,21 @@ find_library(GSTREAMER_APP_LIBRARY
 # Find GLib libraries (dependencies)
 find_library(GLIB_LIBRARY
     NAMES glib-2.0 libglib-2.0
-    HINTS ${GStreamer_ROOT_DIR}/lib
+    HINTS ${_GSTREAMER_LIBRARY_HINTS}
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
 )
 
 find_library(GOBJECT_LIBRARY
     NAMES gobject-2.0 libgobject-2.0
-    HINTS ${GStreamer_ROOT_DIR}/lib
+    HINTS ${_GSTREAMER_LIBRARY_HINTS}
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
 )
 
 find_library(GIO_LIBRARY
     NAMES gio-2.0 libgio-2.0
-    HINTS ${GStreamer_ROOT_DIR}/lib
+    HINTS ${_GSTREAMER_LIBRARY_HINTS}
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
 )
@@ -107,14 +125,24 @@ find_library(GIO_LIBRARY
 # Find INTL library (often required on Android)
 find_library(INTL_LIBRARY
     NAMES intl libintl
-    HINTS ${GStreamer_ROOT_DIR}/lib
+    HINTS ${_GSTREAMER_LIBRARY_HINTS}
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
 )
 
 # Try to get version from pkgconfig
-set(_GSTREAMER_PC_FILE "${GStreamer_ROOT_DIR}/lib/pkgconfig/gstreamer-1.0.pc")
-if(EXISTS "${_GSTREAMER_PC_FILE}")
+set(_GSTREAMER_PC_CANDIDATES
+    "${GStreamer_ROOT_DIR}/lib/pkgconfig/gstreamer-1.0.pc"
+    "${GStreamer_ROOT_DIR}/pkgconfig/gstreamer-1.0.pc"
+)
+foreach(_pc IN LISTS _GSTREAMER_PC_CANDIDATES)
+    if(EXISTS "${_pc}")
+        set(_GSTREAMER_PC_FILE "${_pc}")
+        break()
+    endif()
+endforeach()
+
+if(DEFINED _GSTREAMER_PC_FILE AND EXISTS "${_GSTREAMER_PC_FILE}")
     file(STRINGS "${_GSTREAMER_PC_FILE}" _GSTREAMER_VERSION_LINE REGEX "^Version:")
     if(_GSTREAMER_VERSION_LINE)
         string(REGEX REPLACE "^Version:[ \t]*" "" GSTREAMER_VERSION "${_GSTREAMER_VERSION_LINE}")
@@ -138,7 +166,12 @@ if(GLIB_CONFIG_INCLUDE_DIR)
     list(APPEND GSTREAMER_INCLUDE_DIRS ${GLIB_CONFIG_INCLUDE_DIR})
 endif()
 # Add general include path
-list(APPEND GSTREAMER_INCLUDE_DIRS ${GStreamer_ROOT_DIR}/include)
+if(EXISTS "${GStreamer_ROOT_DIR}/include")
+    list(APPEND GSTREAMER_INCLUDE_DIRS ${GStreamer_ROOT_DIR}/include)
+else()
+    # Flat prefix layout
+    list(APPEND GSTREAMER_INCLUDE_DIRS ${GStreamer_ROOT_DIR})
+endif()
 
 # Collect libraries
 set(GSTREAMER_LIBRARIES)
