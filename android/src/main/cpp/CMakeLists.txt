@@ -17,18 +17,6 @@ endif()
 if(NOT GSTREAMER_ROOT_ANDROID)
     message(FATAL_ERROR "GSTREAMER_ROOT_ANDROID must be set (either environment variable GSTREAMER_ROOT_ANDROID or -DGSTREAMER_ROOT_ANDROID=/path/to/gstreamer/android/sdk)")
 endif()
-# The bundled FindGStreamer.cmake expects a per-ABI prefix (contains lib/pkgconfig).
-set(GStreamer_ROOT_DIR "${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}")
-if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
-    set(GStreamer_ROOT_DIR "${GSTREAMER_ROOT_ANDROID}/arm64")
-elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
-    set(GStreamer_ROOT_DIR "${GSTREAMER_ROOT_ANDROID}/armv7")
-endif()
-
-# Only static libs are shipped in the current SDK layout.
-set(GStreamer_USE_STATIC_LIBS ON)
-# Pull in extra modules we need (video).
-set(GSTREAMER_EXTRA_DEPS gstreamer-video-1.0)
 
 # Some Android GStreamer SDKs name ABI dirs differently (e.g., arm64-v8a vs arm64).
 set(_GSTREAMER_ALT_ABI "${CMAKE_ANDROID_ARCH_ABI}")
@@ -37,6 +25,28 @@ if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
 elseif(CMAKE_ANDROID_ARCH_ABI STREQUAL "armeabi-v7a")
     set(_GSTREAMER_ALT_ABI "armv7")
 endif()
+
+# The Android GStreamer SDK may be installed either as:
+#   - per-ABI subdirectories under GSTREAMER_ROOT_ANDROID (preferred), or
+#   - a single flat prefix (include/, lib/, ...).
+set(GStreamer_ROOT_DIR "${GSTREAMER_ROOT_ANDROID}")
+if(EXISTS "${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}/lib")
+    set(GStreamer_ROOT_DIR "${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}")
+elseif(EXISTS "${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}/lib")
+    set(GStreamer_ROOT_DIR "${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}")
+endif()
+
+# Prefer static libs when the SDK provides them; otherwise fall back to shared.
+# (The official Android "universal" packages often ship shared .so libs.)
+if(NOT DEFINED GStreamer_USE_STATIC_LIBS)
+    if(EXISTS "${GStreamer_ROOT_DIR}/lib/libgstreamer-1.0.a")
+        set(GStreamer_USE_STATIC_LIBS ON)
+    else()
+        set(GStreamer_USE_STATIC_LIBS OFF)
+    endif()
+endif()
+# Pull in extra modules we need (video).
+set(GSTREAMER_EXTRA_DEPS gstreamer-video-1.0)
 
 # Help CMake discover the config package shipped with the Android GStreamer SDK.
 set(_GSTREAMER_HINT_DIRS
