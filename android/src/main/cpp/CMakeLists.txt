@@ -107,6 +107,7 @@ find_library(PCRE2_LIB
     NAMES pcre2-8
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 # GLib plugin loading needs gmodule; conversions need iconv; gobject marshalling needs ffi.
@@ -114,18 +115,21 @@ find_library(GMODULE_LIB
     NAMES gmodule-2.0
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 find_library(ICONV_LIB
     NAMES iconv
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 find_library(FFI_LIB
     NAMES ffi
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 # Static plugin libs we need (coreelements contains videoconvert/appsink; add videotestsrc and androidmedia).
@@ -133,18 +137,21 @@ find_library(GST_COREELEMENTS_LIB
     NAMES gstcoreelements-1.0 gstcoreelements
     HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0 ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 find_library(GST_APP_LIB
     NAMES gstapp-1.0 gstapp
     HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0 ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 find_library(GST_VIDEOTESTSRC_LIB
     NAMES gstvideotestsrc-1.0 gstvideotestsrc
     HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0 ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 # Autodetect plugin (provides autovideosrc).
@@ -168,7 +175,8 @@ find_library(GST_ANDROIDMEDIA_LIB
         ${GSTREAMER_ROOT_ANDROID}/armv7/lib/gstreamer-1.0
         ${GSTREAMER_ROOT_ANDROID}/x86/lib/gstreamer-1.0
         ${GSTREAMER_ROOT_ANDROID}/x86_64/lib/gstreamer-1.0
-    NO_DEFAULT_PATH)
+    NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH)
 
 find_library(GST_AHC_LIB
     NAMES gstahc-1.0 gstahc gstndk-1.0 gstndk gstcamera-1.0 gstcamera
@@ -179,24 +187,28 @@ find_library(GST_AHC_LIB
         ${GSTREAMER_ROOT_ANDROID}/armv7/lib/gstreamer-1.0
         ${GSTREAMER_ROOT_ANDROID}/x86/lib/gstreamer-1.0
         ${GSTREAMER_ROOT_ANDROID}/x86_64/lib/gstreamer-1.0
-    NO_DEFAULT_PATH)
+    NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH)
 
 find_library(GST_OPENGL_LIB
     NAMES gstopengl-1.0 gstopengl
     HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0 ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 find_library(GST_GL_LIB
     NAMES gstgl-1.0
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 find_library(GST_PBUTILS_LIB
     NAMES gstpbutils-1.0
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 # Video format conversion and filters (optional - may be part of coreelements)
@@ -205,59 +217,69 @@ find_library(GST_VIDEOCONVERT_LIB
         gstvideoconvert-1.0 gstvideoconvert
         gstvideoconvertscale-1.0 gstvideoconvertscale
     HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0 ${GStreamer_ROOT_DIR}
-    NO_DEFAULT_PATH)
+    NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH)
 
 find_library(GST_VIDEOSCALE_LIB
     NAMES gstvideoscale-1.0 gstvideoscale
     HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0 ${GStreamer_ROOT_DIR}
-    NO_DEFAULT_PATH)
+    NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH)
 
 find_library(GST_AUDIO_LIB
     NAMES gstaudio-1.0
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 find_library(GST_PHOTOGRAPHY_LIB
     NAMES gstphotography-1.0
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 find_library(ORC_LIB
     NAMES orc-0.4
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 find_library(PNG_LIB
     NAMES png16 png
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 find_library(JPEG_LIB
     NAMES jpeg
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 find_library(ZLIB_LIB
     NAMES z zlib
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 find_library(GRAPHENE_LIB
     NAMES graphene-1.0 graphene
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 find_library(GST_CONTROLLER_LIB
     NAMES gstcontroller-1.0
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 # Core app library (contains gst_app_src/sink types).
@@ -265,6 +287,7 @@ find_library(GST_APP_CORE_LIB
     NAMES gstapp-1.0
     HINTS ${GStreamer_ROOT_DIR}/lib ${GStreamer_ROOT_DIR}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
 add_library(kataglyphis_native_inference SHARED gstreamer_native.cpp)
