@@ -132,33 +132,46 @@ find_library(FFI_LIB
     NO_CMAKE_FIND_ROOT_PATH
     REQUIRED)
 
+# Candidate locations for GStreamer plugin libs (.a/.so modules)
+set(_GST_PLUGIN_DIR_HINTS
+    ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0
+    ${GStreamer_ROOT_DIR}/lib
+    ${GStreamer_ROOT_DIR}/gstreamer-1.0
+    ${GStreamer_ROOT_DIR}/gst-android
+    ${GStreamer_ROOT_DIR}
+    ${GSTREAMER_ROOT_ANDROID}/lib/gstreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/gstreamer-1.0
+    ${GSTREAMER_ROOT_ANDROID}/gst-android
+)
+
 # Static plugin libs we need (coreelements contains videoconvert/appsink; add videotestsrc and androidmedia).
 find_library(GST_COREELEMENTS_LIB
-    NAMES gstcoreelements-1.0 gstcoreelements
-    HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0 ${GStreamer_ROOT_DIR}
+    NAMES gstcoreelements gstcoreelements-1.0 gstcoreelements-1.0
+    HINTS ${_GST_PLUGIN_DIR_HINTS}
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
-    REQUIRED)
+)
 
 find_library(GST_APP_LIB
-    NAMES gstapp-1.0 gstapp
-    HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0 ${GStreamer_ROOT_DIR}
+    NAMES gstapp gstapp-1.0
+    HINTS ${_GST_PLUGIN_DIR_HINTS}
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
-    REQUIRED)
+)
 
 find_library(GST_VIDEOTESTSRC_LIB
-    NAMES gstvideotestsrc-1.0 gstvideotestsrc
-    HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0 ${GStreamer_ROOT_DIR}
+    NAMES gstvideotestsrc gstvideotestsrc-1.0
+    HINTS ${_GST_PLUGIN_DIR_HINTS}
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
-    REQUIRED)
+)
 
 # Autodetect plugin (provides autovideosrc).
 find_library(GST_AUTODETECT_LIB
-    NAMES gstautodetect-1.0 gstautodetect
-    HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0 ${GStreamer_ROOT_DIR}
-    NO_DEFAULT_PATH)
+    NAMES gstautodetect gstautodetect-1.0
+    HINTS ${_GST_PLUGIN_DIR_HINTS}
+    NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH)
 
 # Android media plugin.
 # In the GStreamer SDK this typically follows the pattern libgst<plugin>.a/.so,
@@ -191,11 +204,11 @@ find_library(GST_AHC_LIB
     NO_CMAKE_FIND_ROOT_PATH)
 
 find_library(GST_OPENGL_LIB
-    NAMES gstopengl-1.0 gstopengl
-    HINTS ${GStreamer_ROOT_DIR}/lib/gstreamer-1.0 ${GStreamer_ROOT_DIR}
+    NAMES gstopengl gstopengl-1.0
+    HINTS ${_GST_PLUGIN_DIR_HINTS}
     NO_DEFAULT_PATH
     NO_CMAKE_FIND_ROOT_PATH
-    REQUIRED)
+)
 
 find_library(GST_GL_LIB
     NAMES gstgl-1.0
@@ -312,12 +325,28 @@ if(GST_AUTODETECT_LIB)
     message(STATUS "Enabling GST_AUTODETECT_AVAILABLE")
 endif()
 
-# Build plugin list for whole-archive
-set(_WHOLE_ARCHIVE_PLUGINS
-    ${GST_COREELEMENTS_LIB}
-    ${GST_APP_LIB}
-    ${GST_VIDEOTESTSRC_LIB}
-    ${GST_OPENGL_LIB})
+# Build plugin list for whole-archive (only what exists in the SDK)
+set(_WHOLE_ARCHIVE_PLUGINS)
+if(GST_COREELEMENTS_LIB)
+    list(APPEND _WHOLE_ARCHIVE_PLUGINS ${GST_COREELEMENTS_LIB})
+else()
+    message(STATUS "GST_COREELEMENTS_LIB not found - continuing without static coreelements")
+endif()
+if(GST_APP_LIB)
+    list(APPEND _WHOLE_ARCHIVE_PLUGINS ${GST_APP_LIB})
+else()
+    message(STATUS "GST_APP_LIB (plugin) not found - continuing without static gstapp plugin")
+endif()
+if(GST_VIDEOTESTSRC_LIB)
+    list(APPEND _WHOLE_ARCHIVE_PLUGINS ${GST_VIDEOTESTSRC_LIB})
+else()
+    message(STATUS "GST_VIDEOTESTSRC_LIB not found - continuing without static videotestsrc")
+endif()
+if(GST_OPENGL_LIB)
+    list(APPEND _WHOLE_ARCHIVE_PLUGINS ${GST_OPENGL_LIB})
+else()
+    message(STATUS "GST_OPENGL_LIB (plugin) not found - continuing without static gstopengl")
+endif()
 
 # Diagnose: Print which optional plugins are available
 message(STATUS "=== GStreamer Build Configuration ===")
