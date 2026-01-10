@@ -5,12 +5,18 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(NOT DEFINED ENV{GSTREAMER_ROOT_ANDROID})
-    message(FATAL_ERROR "GSTREAMER_ROOT_ANDROID environment variable must point to the GStreamer Android SDK root")
+# Resolve GStreamer Android SDK root.
+# Prefer an explicitly provided CMake variable (-DGSTREAMER_ROOT_ANDROID=...),
+# otherwise fall back to the environment variable.
+if(NOT GSTREAMER_ROOT_ANDROID)
+    if(DEFINED ENV{GSTREAMER_ROOT_ANDROID})
+        set(GSTREAMER_ROOT_ANDROID "$ENV{GSTREAMER_ROOT_ANDROID}")
+    endif()
 endif()
 
-set(GSTREAMER_ROOT_ANDROID $ENV{GSTREAMER_ROOT_ANDROID})
-
+if(NOT GSTREAMER_ROOT_ANDROID)
+    message(FATAL_ERROR "GSTREAMER_ROOT_ANDROID must be set (either environment variable GSTREAMER_ROOT_ANDROID or -DGSTREAMER_ROOT_ANDROID=/path/to/gstreamer/android/sdk)")
+endif()
 # The bundled FindGStreamer.cmake expects a per-ABI prefix (contains lib/pkgconfig).
 set(GStreamer_ROOT_DIR "${GSTREAMER_ROOT_ANDROID}/${CMAKE_ANDROID_ARCH_ABI}")
 if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")

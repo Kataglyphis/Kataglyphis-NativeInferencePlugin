@@ -57,6 +57,14 @@ android {
         externalNativeBuild {
             cmake {
                 arguments "-DANDROID_STL=c++_shared"
+
+                def gstreamerRootAndroid = System.getenv("GSTREAMER_ROOT_ANDROID")
+                if (!gstreamerRootAndroid && project.hasProperty("gstreamerRootAndroid")) {
+                    gstreamerRootAndroid = project.property("gstreamerRootAndroid")
+                }
+                if (gstreamerRootAndroid) {
+                    arguments "-DGSTREAMER_ROOT_ANDROID=${gstreamerRootAndroid}"
+                }
             }
         }
 
