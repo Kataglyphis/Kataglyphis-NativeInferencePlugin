@@ -61,6 +61,10 @@ set(_GSTREAMER_HINT_DIRS
 list(PREPEND CMAKE_PREFIX_PATH ${_GSTREAMER_HINT_DIRS})
 list(PREPEND CMAKE_FIND_ROOT_PATH ${GSTREAMER_ROOT_ANDROID})
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
+
+# Add local cmake module path FIRST (contains our FindGStreamer.cmake)
+list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
 list(PREPEND CMAKE_MODULE_PATH
     ${GSTREAMER_ROOT_ANDROID}/share/cmake
     ${GSTREAMER_ROOT_ANDROID}/share/cmake/gstreamer-1.0
@@ -73,11 +77,11 @@ list(PREPEND CMAKE_MODULE_PATH
     ${GSTREAMER_ROOT_ANDROID}/${_GSTREAMER_ALT_ABI}/share/cmake/GStreamer-1.0
 )
 
-# Prefer the SDK-provided find module (no config package is shipped in this SDK).
-set(CMAKE_MODULE_PATH
+# Prefer the SDK-provided find module, fallback to our local FindGStreamer.cmake
+list(APPEND CMAKE_MODULE_PATH
     ${GStreamer_ROOT_DIR}/share/cmake
     ${GStreamer_ROOT_DIR}/share/cmake/gstreamer-1.0
-    ${CMAKE_MODULE_PATH})
+)
 
 find_package(GStreamer REQUIRED MODULE)
 
