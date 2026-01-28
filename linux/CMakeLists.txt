@@ -7,6 +7,11 @@ cmake_minimum_required(VERSION 4.1.1)
 set(PROJECT_NAME "kataglyphis_native_inference")
 project(${PROJECT_NAME} LANGUAGES CXX)
 
+if(CMAKE_C_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --gcc-toolchain=/opt/gcc-15.2.0")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --gcc-toolchain=/opt/gcc-15.2.0")
+endif()
+
 # This value is used when generating builds using this plugin, so it must
 # not be changed.
 set(PLUGIN_NAME "kataglyphis_native_inference_plugin")
