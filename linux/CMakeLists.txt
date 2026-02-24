@@ -1,7 +1,4 @@
-# The Flutter tooling requires that developers have CMake 3.10 or later
-# installed. You should not increase this version, as doing so will cause
-# the plugin to fail to compile for some customers of the plugin.
-cmake_minimum_required(VERSION 4.1.1)
+cmake_minimum_required(VERSION 4.2.1)
 
 # Project-level configuration.
 set(PROJECT_NAME "kataglyphis_native_inference")
@@ -23,6 +20,10 @@ set(PLUGIN_NAME "kataglyphis_native_inference_plugin")
 list(APPEND PLUGIN_SOURCES
   "kataglyphis_native_inference_plugin.cc"
   "my_texture.cc"
+)
+
+list(APPEND PLUGIN_MODULES
+  "my_texture.ixx"
 )
 
 # Add your native library - source folder is ../native
@@ -58,6 +59,18 @@ add_library(${PLUGIN_NAME} SHARED
   ${PLUGIN_SOURCES}
 )
 
+target_sources(
+  ${PLUGIN_NAME}
+  PUBLIC FILE_SET
+         CXX_MODULES
+         BASE_DIRS
+         ${CMAKE_CURRENT_SOURCE_DIR}
+         FILES
+         ${PLUGIN_MODULES}
+)
+
+target_compile_features(${PLUGIN_NAME} PRIVATE cxx_std_20)
+
 # Apply a standard set of build settings that are configured in the
 # application-level CMakeLists.txt. This can be removed for plugins that want
 # full control over build settings.
@@ -66,6 +79,7 @@ apply_standard_settings(${PLUGIN_NAME})
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GST REQUIRED IMPORTED_TARGET gstreamer-1.0)
 pkg_check_modules(GST_APP REQUIRED IMPORTED_TARGET gstreamer-app-1.0)
+pkg_check_modules(GST_VIDEO REQUIRED IMPORTED_TARGET gstreamer-video-1.0)
 
 
 # Symbols are hidden by default to reduce the chance of accidental conflicts
@@ -84,13 +98,15 @@ target_include_directories(${PLUGIN_NAME} INTERFACE
 target_include_directories(${PLUGIN_NAME} PRIVATE
   ${GST_INCLUDE_DIRS}
   ${GST_APP_INCLUDE_DIRS}
+  ${GST_VIDEO_INCLUDE_DIRS}
 )
 
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter)
 target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GTK)
 target_link_libraries(${PLUGIN_NAME} PRIVATE KataglyphisCppInference)
 target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GST
-  PkgConfig::GST_APP)
+  PkgConfig::GST_APP
+  PkgConfig::GST_VIDEO)
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an
 # external build triggered from this build file.
@@ -131,6 +147,16 @@ add_executable(${TEST_RUNNER}
   test/kataglyphis_native_inference_plugin_test.cc
   ${PLUGIN_SOURCES}
 )
+target_sources(
+  ${TEST_RUNNER}
+  PUBLIC FILE_SET
+         CXX_MODULES
+         BASE_DIRS
+         ${CMAKE_CURRENT_SOURCE_DIR}
+         FILES
+         ${PLUGIN_MODULES}
+)
+target_compile_features(${TEST_RUNNER} PRIVATE cxx_std_20)
 apply_standard_settings(${TEST_RUNNER})
 target_include_directories(${TEST_RUNNER} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(${TEST_RUNNER} PRIVATE flutter)
