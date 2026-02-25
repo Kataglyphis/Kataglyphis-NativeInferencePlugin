@@ -137,8 +137,12 @@ static gboolean my_texture_copy_pixels(FlPixelBufferTexture* texture,
     if (buffer && gst_buffer_map(buffer, &map, GST_MAP_READ)) {
       GstVideoInfo info;
       if (caps && gst_video_info_from_caps(&info, caps)) {
-        const uint32_t src_width = GST_VIDEO_INFO_WIDTH(&info);
-        const uint32_t src_height = GST_VIDEO_INFO_HEIGHT(&info);
+        const gint src_width_signed = GST_VIDEO_INFO_WIDTH(&info);
+        const gint src_height_signed = GST_VIDEO_INFO_HEIGHT(&info);
+        const uint32_t src_width =
+          static_cast<uint32_t>(std::max(src_width_signed, 0));
+        const uint32_t src_height =
+          static_cast<uint32_t>(std::max(src_height_signed, 0));
         const int src_stride = GST_VIDEO_INFO_PLANE_STRIDE(&info, 0);
         const size_t row_bytes =
             std::min(static_cast<size_t>(self->width), static_cast<size_t>(src_width)) * 4U;
