@@ -3,10 +3,13 @@
 
 #include <flutter/method_channel.h>
 #include <flutter/plugin_registrar_windows.h>
+#include <flutter/texture_registrar.h>
 
 #include <memory>
 
 namespace kataglyphis_native_inference {
+
+class KataglyphisTexture;
 
 class KataglyphisNativeInferencePlugin : public flutter::Plugin {
  public:
@@ -16,14 +19,18 @@ class KataglyphisNativeInferencePlugin : public flutter::Plugin {
 
   virtual ~KataglyphisNativeInferencePlugin();
 
-  // Disallow copy and assign.
-  KataglyphisNativeInferencePlugin(const KataglyphisNativeInferencePlugin&) = delete;
-  KataglyphisNativeInferencePlugin& operator=(const KataglyphisNativeInferencePlugin&) = delete;
+  KataglyphisNativeInferencePlugin(const KataglyphisNativeInferencePlugin&) =
+      delete;
+  KataglyphisNativeInferencePlugin& operator=(
+      const KataglyphisNativeInferencePlugin&) = delete;
 
-  // Called when a method is called on this plugin's channel from Dart.
   void HandleMethodCall(
-      const flutter::MethodCall<flutter::EncodableValue> &method_call,
+      const flutter::MethodCall<flutter::EncodableValue>& method_call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
+
+ private:
+  flutter::TextureRegistrar* texture_registrar_;
+  KataglyphisTexture* texture_;
 };
 
 }  // namespace kataglyphis_native_inference

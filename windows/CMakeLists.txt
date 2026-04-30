@@ -20,6 +20,8 @@ set(PLUGIN_NAME "kataglyphis_native_inference_plugin")
 list(APPEND PLUGIN_SOURCES
   "kataglyphis_native_inference_plugin.cpp"
   "kataglyphis_native_inference_plugin.h"
+  "kataglyphis_texture.cpp"
+  "kataglyphis_texture.h"
 )
 
 set(RUST_FEATURES "TRUE")
