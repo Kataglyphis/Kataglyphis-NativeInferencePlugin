@@ -39,7 +39,15 @@ KataglyphisNativeInferencePlugin::KataglyphisNativeInferencePlugin()
     : texture_registrar_(nullptr), texture_(nullptr) {}
 
 KataglyphisNativeInferencePlugin::~KataglyphisNativeInferencePlugin() {
-  delete texture_;
+  if (texture_) {
+    if (texture_->texture_id() >= 0) {
+      UnregisterPushTarget(texture_->texture_id());
+      if (texture_registrar_) {
+        texture_registrar_->UnregisterTexture(texture_->texture_id());
+      }
+    }
+    delete texture_;
+  }
 }
 
 namespace {
@@ -61,16 +69,13 @@ bool TextureMethodCall(const flutter::MethodCall<flutter::EncodableValue>& call,
         const std::string* pipeline =
             std::get_if<std::string>(&it->second);
         if (pipeline) {
-          GError* error = nullptr;
+          std::string error;
           bool success = texture->SetPipeline(pipeline->c_str(), &error);
           if (success) {
             result->Success(flutter::EncodableValue());
           } else {
             result->Error("pipeline_error",
-                          error ? error->message : "Failed to set pipeline");
-            if (error) {
-              g_error_free(error);
-            }
+                          error.empty() ? "Failed to set pipeline" : error);
           }
           return true;
         }
@@ -189,17 +194,23 @@ void KataglyphisNativeInferencePlugin::HandleMethodCall(
     texture_->SetTextureRegistrar(texture_registrar_);
 
     OutputDebugStringA("[kataglyphis] About to register texture\n");
-    flutter::TextureVariant texture_variant = texture_->GetTextureVariant();
-    if (!texture_registrar_->RegisterTexture(&texture_variant)) {
-      OutputDebugStringA("[kataglyphis] RegisterTexture returned false\n");
+    texture_variant_ = std::make_unique<flutter::TextureVariant>(
+        texture_->GetTextureVariant());
+    const int64_t texture_id =
+        texture_registrar_->RegisterTexture(texture_variant_.get());
+    if (texture_id < 0) {
+      OutputDebugStringA("[kataglyphis] RegisterTexture failed\n");
       delete texture_;
       texture_ = nullptr;
+      texture_variant_.reset();
       result->Error("texture_error", "Failed to register texture");
       return;
     }
+    texture_->set_texture_id(texture_id);
+    RegisterPushTarget(texture_id, texture_);
     OutputDebugStringA("[kataglyphis] Texture registered successfully\n");
 
-    result->Success(flutter::EncodableValue(texture_->texture_id()));
+    result->Success(flutter::EncodableValue(texture_id));
   } else if (TextureMethodCall(method_call, texture_, std::move(result))) {
   } else {
     result->NotImplemented();
