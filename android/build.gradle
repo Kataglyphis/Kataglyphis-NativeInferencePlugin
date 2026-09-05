@@ -29,20 +29,13 @@ android {
 
     compileSdk = 36
 
-    // Both are pinned for the same reason: without them the Android Gradle
-    // Plugin falls back to its own defaults (NDK 27.0.12077973, build-tools
-    // 35.0.0 for AGP 8.11.1), which the CI image does not ship. Its
-    // /opt/android-sdk is read-only, so Gradle cannot install them and dies
-    // with "The SDK directory is not writable". Keep both equal to the app's.
+    // Pinned to the CI image — Inference-Engine AGENTS.md § 3.
     buildToolsVersion = "36.0.0"
     ndkVersion = "29.0.14206865"
 
     externalNativeBuild {
         cmake {
             path "src/main/cpp/CMakeLists.txt"
-            // Without a version AGP asks for its default (cmake;3.22.1), which
-            // the read-only /opt/android-sdk of the CI image does not ship —
-            // it carries 4.1.2. Same rule as buildToolsVersion/ndkVersion.
             version "4.1.2"
         }
     }
